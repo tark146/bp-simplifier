@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UE5 Blueprint Simplifier</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .input-section, .output-section {
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            height: 250px;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            resize: vertical;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        .stats {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+        .stats.show {
+            display: block;
+        }
+        .stat-item {
+            display: inline-block;
+            margin-right: 30px;
+            color: #666;
+        }
+        .stat-value {
+            font-weight: bold;
+            color: #333;
+        }
+        h3 {
+            color: #555;
+            margin-top: 20px;
+        }
+        .copy-btn {
+            background: #28a745;
+        }
+        .clear-btn {
+            background: #dc3545;
+        }
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+        .tab-button {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            color: #666;
+            font-size: 14px;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        .tab-button.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        #diagramOutput {
+            background: #f8f9fa;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            min-height: 400px;
+            overflow-x: auto;
+        }
+        .compression-level {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f0f0f0;
+            border-radius: 5px;
+        }
+        .compression-level label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: bold;
+        }
+        .compression-level input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+        }
+        .level-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #777;
+        }
+        .abbreviations {
+            background: #e8f5e9;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        .abbreviations h4 {
+            margin: 0 0 5px 0;
+            color: #2e7d32;
+        }
+        .abbr-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 UE5 Blueprint Simplifier</h1>
+        
+        <div class="input-section">
+            <h3>Input (Blueprint Copy Text)</h3>
+            <textarea id="input" placeholder="Paste your copied Blueprint text from UE5 here..."></textarea>
+        </div>
+
+        <div class="compression-level">
+            <label for="compressionLevel">Compression Level</label>
+            <input type="range" id="compressionLevel" min="1" max="3" value="2" oninput="updateCompressionLabel()">
+            <div class="level-labels">
+                <span>Standard</span>
+                <span>Shortened</span>
+                <span>Minimal</span>
+            </div>
+            <div id="compressionDescription" style="text-align: center; margin-top: 5px; color: #666;">Shortened: Uses common abbreviations</div>
+        </div>
+
+        <div style="text-align: center; margin: 20px 0;">
+            <button onclick="simplifyBlueprint()">⚡ Convert</button>
+            <button class="clear-btn" onclick="clearAll()">🗑️ Clear</button>
+        </div>
+
+        <div class="output-section">
+            <h3>Output</h3>
+            <div class="tabs">
+                <button class="tab-button active" onclick="switchTab('text')">📝 Text</button>
+                <button class="tab-button" onclick="switchTab('diagram')">📊 Diagram</button>
+            </div>
+            
+            <div id="textTab" class="tab-content active">
+                <textarea id="output" readonly placeholder="Conversion result will appear here..."></textarea>
+                <button class="copy-btn" onclick="copyOutput()">📋 Copy</button>
+                <div id="abbreviations" class="abbreviations" style="display: none;">
+                    <h4>Abbreviations used:</h4>
+                    <div id="abbrList" class="abbr-list"></div>
+                </div>
+            </div>
+            
+            <div id="diagramTab" class="tab-content">
+                <div id="diagramOutput"></div>
+                <button class="copy-btn" onclick="copyDiagram()">📋 Copy Mermaid Code</button>
+            </div>
+        </div>
+
+        <div id="stats" class="stats">
+            <div class="stat-item">Original: <span class="stat-value" id="originalSize">0</span> chars</div>
+            <div class="stat-item">Converted: <span class="stat-value" id="newSize">0</span> chars</div>
+            <div class="stat-item">Reduction: <span class="stat-value" id="reduction">0</span>%</div>
+            <div class="stat-item">Nodes: <span class="stat-value" id="nodeCount">0</span></div>
+        </div>
+    </div>
+
+    <script>
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+        
+        // Abbreviation dictionary
+        const abbreviations = {
+            standard: {
+                'K2Node_InputAction': 'IA',
+                'K2Node_CallFunction': 'Fn',
+                'K2Node_VariableGet': 'Get',
+                'K2Node_VariableSet': 'Set',
+                'K2Node_Event': 'Ev',
+                'K2Node_IfThenElse': 'If',
+                'K2Node_ForEachLoop': 'ForEach',
+                'K2Node_WhileLoop': 'While',
+                'K2Node_CommutativeAssociativeBinaryOperator': 'Op',
+                'K2Node_DynamicCast': 'Cast',
+                'K2Node_SpawnActorFromClass': 'Spawn',
+                'K2Node_DestroyActor': 'Destroy',
+                'EGPD_Output': '→',
+                'EGPD_Input': '←',
+                'Connections': 'Con',
+                'function': 'fn',
+                'inputAction': 'ia'
+            },
+            shortened: {
+                'K2Node_InputAction': 'I',
+                'K2Node_CallFunction': 'F',
+                'K2Node_VariableGet': 'G',
+                'K2Node_VariableSet': 'S',
+                'K2Node_Event': 'E',
+                'K2Node_IfThenElse': '?',
+                'K2Node_ForEachLoop': 'FE',
+                'K2Node_WhileLoop': 'W',
+                'K2Node_CommutativeAssociativeBinaryOperator': 'O',
+                'K2Node_DynamicCast': 'C',
+                'K2Node_SpawnActorFromClass': 'SP',
+                'K2Node_DestroyActor': 'D',
+                'execute': 'x',
+                'then': 't',
+                'else': 'e',
+                'true': 'T',
+                'false': 'F'
+            },
+            minimal: {
+                // Use symbols only
+                'execute': '►',
+                'then': '▶',
+                'else': '▷',
+                'true': '✓',
+                'false': '✗',
+                'Connections': '⟶'
+            }
+        };
+        
+        let currentDiagramCode = '';
+        let usedAbbreviations = new Set();
+        
+        function updateCompressionLabel() {
+            const level = document.getElementById('compressionLevel').value;
+            const descriptions = {
+                '1': 'Standard: Readability focused',
+                '2': 'Shortened: Uses common abbreviations',
+                '3': 'Minimal: Maximum compression'
+            };
+            document.getElementById('compressionDescription').textContent = descriptions[level];
+        }
+        
+        function getAbbreviation(term, level) {
+            let abbr = term;
+            if (level >= 2 && abbreviations.standard[term]) {
+                abbr = abbreviations.standard[term];
+                usedAbbreviations.add(`${term} → ${abbr}`);
+            }
+            if (level >= 3) {
+                if (abbreviations.shortened[term]) {
+                    abbr = abbreviations.shortened[term];
+                    usedAbbreviations.add(`${term} → ${abbr}`);
+                }
+                if (abbreviations.minimal[term]) {
+                    abbr = abbreviations.minimal[term];
+                    usedAbbreviations.add(`${term} → ${abbr}`);
+                }
+            }
+            return abbr;
+        }
+        
+        function simplifyBlueprint() {
+            const input = document.getElementById('input').value;
+            if (!input) {
+                alert('Please enter Blueprint text');
+                return;
+            }
+
+            const nodes = [];
+            const lines = input.split('\n');
+            let currentNode = null;
+            let nodeCount = 0;
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                
+                // Node start
+                if (trimmed.startsWith('Begin Object')) {
+                    const classMatch = trimmed.match(/Class=([^\s]+)/);
+                    const nameMatch = trimmed.match(/Name="([^"]+)"/);
+                    
+                    if (classMatch && nameMatch) {
+                        currentNode = {
+                            type: classMatch[1].split('.').pop().replace(/'/g, ''),
+                            name: nameMatch[1],
+                            pins: [],
+                            properties: {}
+                        };
+                        nodeCount++;
+                    }
+                }
+                // Node end
+                else if (trimmed.startsWith('End Object') && currentNode) {
+                    nodes.push(currentNode);
+                    currentNode = null;
+                }
+                // Properties within node
+                else if (currentNode) {
+                    // Extract important properties
+                    if (trimmed.includes('FunctionReference=')) {
+                        const funcMatch = trimmed.match(/MemberName="([^"]+)"/);
+                        if (funcMatch) {
+                            currentNode.properties.function = funcMatch[1];
+                        }
+                    }
+                    else if (trimmed.includes('InputAction=')) {
+                        const actionMatch = trimmed.match(/([^/]+)\.([^']+)'/);
+                        if (actionMatch) {
+                            currentNode.properties.inputAction = actionMatch[2];
+                        }
+                    }
+                    // Parse pin information
+                    else if (trimmed.includes('CustomProperties Pin')) {
+                        const pinIdMatch = trimmed.match(/PinId=([A-F0-9]+)/);
+                        const pinNameMatch = trimmed.match(/PinName="([^"]+)"/);
+                        const linkedToMatch = trimmed.match(/LinkedTo=\(([^)]+)\)/);
+                        const directionMatch = trimmed.match(/Direction="([^"]+)"/);
+                        
+                        if (pinIdMatch && pinNameMatch) {
+                            const pin = {
+                                id: pinIdMatch[1],
+                                name: pinNameMatch[1],
+                                direction: directionMatch ? directionMatch[1] : 'EGPD_Input'
+                            };
+                            
+                            if (linkedToMatch) {
+                                const links = linkedToMatch[1].split(',').map(link => {
+                                    const parts = link.trim().split(' ');
+                                    return {
+                                        node: parts[0],
+                                        pin: parts[1]
+                                    };
+                                });
+                                pin.linkedTo = links;
+                            }
+                            
+                            currentNode.pins.push(pin);
+                        }
+                    }
+                }
+            }
+
+            // Get compression level
+            const compressionLevel = parseInt(document.getElementById('compressionLevel').value);
+            usedAbbreviations.clear();
+            
+            // Generate simplified text
+            let output = compressionLevel === 3 ? '' : '=== BP ===\n\n';
+            
+            // Generate Mermaid diagram code
+            currentDiagramCode = 'graph LR\n';
+            const nodeMap = new Map();
+            
+            for (let i = 0; i < nodes.length; i++) {
+                const node = nodes[i];
+                const nodeId = `N${i}`;
+                nodeMap.set(node.name, nodeId);
+                
+                // Abbreviate node type
+                const typeAbbr = getAbbreviation(node.type, compressionLevel);
+                const nodeName = compressionLevel === 3 ? node.name.substring(0, 8) : node.name;
+                
+                // Text output
+                if (compressionLevel === 3) {
+                    output += `[${typeAbbr}]${nodeName}`;
+                } else {
+                    output += `[${typeAbbr}] ${nodeName}\n`;
+                }
+                
+                // Mermaid node
+                let nodeLabel = typeAbbr;
+                if (node.properties.function) {
+                    nodeLabel += `\n${node.properties.function}`;
+                } else if (node.properties.inputAction) {
+                    nodeLabel += `\n${node.properties.inputAction}`;
+                }
+                currentDiagramCode += `    ${nodeId}["${nodeLabel}"]\n`;
+                
+                // Display properties
+                if (Object.keys(node.properties).length > 0 && compressionLevel < 3) {
+                    for (const [key, value] of Object.entries(node.properties)) {
+                        const keyAbbr = getAbbreviation(key, compressionLevel);
+                        if (compressionLevel === 2) {
+                            output += ` ${keyAbbr}:${value}`;
+                        } else {
+                            output += `  ${keyAbbr}: ${value}\n`;
+                        }
+                    }
+                }
+                
+                // Display connection info
+                const connectedPins = node.pins.filter(p => p.linkedTo);
+                if (connectedPins.length > 0) {
+                    const conLabel = getAbbreviation('Connections', compressionLevel);
+                    if (compressionLevel < 3) {
+                        output += compressionLevel === 2 ? ` ${conLabel}:` : `  ${conLabel}:\n`;
+                    }
+                    
+                    for (const pin of connectedPins) {
+                        const direction = getAbbreviation(pin.direction, compressionLevel);
+                        const pinName = compressionLevel === 3 ? 
+                            getAbbreviation(pin.name.toLowerCase(), compressionLevel) || pin.name.substring(0, 3) : 
+                            pin.name;
+                        
+                        for (const link of pin.linkedTo) {
+                            const linkNode = compressionLevel === 3 ? 
+                                link.node.substring(0, 8) : 
+                                link.node;
+                            
+                            if (compressionLevel === 3) {
+                                output += `${pinName}${direction}${linkNode} `;
+                            } else if (compressionLevel === 2) {
+                                output += `${pinName}${direction}${linkNode} `;
+                            } else {
+                                output += `    ${pinName} ${direction} ${linkNode}\n`;
+                            }
+                        }
+                    }
+                }
+                
+                if (compressionLevel < 3) {
+                    output += '\n';
+                } else {
+                    output += '|';
+                }
+            }
+            
+            // Generate Mermaid connections
+            for (const node of nodes) {
+                const fromId = nodeMap.get(node.name);
+                for (const pin of node.pins.filter(p => p.linkedTo && p.direction === 'EGPD_Output')) {
+                    for (const link of pin.linkedTo) {
+                        const toId = nodeMap.get(link.node);
+                        if (toId) {
+                            const edgeLabel = pin.name === 'execute' || pin.name === 'then' ? '' : `|${pin.name}|`;
+                            currentDiagramCode += `    ${fromId} -->${edgeLabel} ${toId}\n`;
+                        }
+                    }
+                }
+            }
+            
+            // Update diagram
+            updateDiagram();
+
+            // Update output and statistics
+            document.getElementById('output').value = output;
+            
+            const originalSize = input.length;
+            const newSize = output.length;
+            const reduction = Math.round((1 - newSize / originalSize) * 100);
+            
+            document.getElementById('originalSize').textContent = originalSize.toLocaleString();
+            document.getElementById('newSize').textContent = newSize.toLocaleString();
+            document.getElementById('reduction').textContent = reduction;
+            document.getElementById('nodeCount').textContent = nodeCount;
+            document.getElementById('stats').classList.add('show');
+            
+            // Display abbreviation list
+            if (usedAbbreviations.size > 0 && compressionLevel >= 2) {
+                document.getElementById('abbreviations').style.display = 'block';
+                const abbrList = document.getElementById('abbrList');
+                abbrList.innerHTML = Array.from(usedAbbreviations).map(abbr => 
+                    `<span>${abbr}</span>`
+                ).join('');
+            } else {
+                document.getElementById('abbreviations').style.display = 'none';
+            }
+        }
+
+        function copyOutput() {
+            const output = document.getElementById('output');
+            output.select();
+            document.execCommand('copy');
+            alert('Copied to clipboard!');
+        }
+
+        function switchTab(tab) {
+            // Switch tab buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Switch tab content
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            if (tab === 'text') {
+                document.getElementById('textTab').classList.add('active');
+            } else {
+                document.getElementById('diagramTab').classList.add('active');
+                updateDiagram();
+            }
+        }
+        
+        function updateDiagram() {
+            const diagramDiv = document.getElementById('diagramOutput');
+            if (currentDiagramCode) {
+                diagramDiv.innerHTML = `<div class="mermaid">${currentDiagramCode}</div>`;
+                mermaid.init(undefined, diagramDiv.querySelector('.mermaid'));
+            } else {
+                diagramDiv.innerHTML = '<p style="text-align: center; color: #999;">Run conversion to see the diagram</p>';
+            }
+        }
+        
+        function copyDiagram() {
+            if (currentDiagramCode) {
+                navigator.clipboard.writeText(currentDiagramCode).then(() => {
+                    alert('Mermaid code copied to clipboard!');
+                });
+            }
+        }
+        
+        function clearAll() {
+            document.getElementById('input').value = '';
+            document.getElementById('output').value = '';
+            document.getElementById('stats').classList.remove('show');
+            document.getElementById('abbreviations').style.display = 'none';
+            currentDiagramCode = '';
+            updateDiagram();
+        }
+    </script>
+</body>
+</html>
