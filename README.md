@@ -17,9 +17,7 @@ A simple web tool to simplify and visualize Unreal Engine 5 Blueprint copy text.
 4. Click "Convert"
 5. View simplified text or diagram
 
-## Live Demo
 
-You can use it directly via GitHub Pages after uploading.
 
 ## Disclaimer
 
